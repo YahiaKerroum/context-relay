@@ -303,6 +303,15 @@ class TestChecks(Base):
         self.assertIsNone(self.stop(p, sid))
 
 
+class TestSnapshotRecovery(Base):
+    def test_project_recreated_at_the_same_path_gets_a_fresh_history(self):
+        p = project("recreated")
+        self.assertTrue(guard.snapshot(str(p), "first", "claude", "s"))
+        p = project("recreated")  # same path, new .git: the old objects are gone
+        (p / "src" / "app.py").write_text("x = 2\n")
+        self.assertTrue(guard.snapshot(str(p), "second", "claude", "s"))
+
+
 class TestHandoffStillWorks(Base):
     def test_threshold_triggers_handoff_and_phone_runs_skip_it(self):
         p = project()

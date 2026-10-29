@@ -11,6 +11,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import time
 import urllib.request
@@ -226,8 +227,19 @@ def project_root(cwd):
     return Path(r.stdout.strip()) if r.returncode == 0 else None
 
 
+def _intact(gd, root):
+    """False when the snapshot history points at objects that are gone (the project was re-created, or
+    `git gc` pruned objects the hidden repo borrowed through its alternates)."""
+    if not _git(gd, root, "for-each-ref", "--count=1", check=False).strip():
+        return True  # no snapshot yet
+    return subprocess.run(["git", "--git-dir", str(gd), "cat-file", "-e", "HEAD^{tree}"], capture_output=True,
+                          creationflags=NO_WINDOW).returncode == 0
+
+
 def _repo(root):
     gd = SNAPS / _key(root)
+    if (gd / "HEAD").exists() and not _intact(gd, root):
+        shutil.rmtree(gd, ignore_errors=True)  # unrecoverable history: start a fresh one
     if not (gd / "HEAD").exists():
         gd.mkdir(parents=True, exist_ok=True)
         subprocess.run(["git", "init", "--bare", "-q", str(gd)], check=True, creationflags=NO_WINDOW)
