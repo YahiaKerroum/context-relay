@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        python: ["3.10", "3.13"]
+    env:
+      SKIP_SCREEN: "1"
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check .
+      - name: Tests
+        working-directory: tests
+        run: python -m unittest discover -s . -v
+      - name: Extension syntax
+        run: node --check src/context_relay/extension/extension.js
+      - name: Build the extension package
+        run: python -m context_relay build-vsix
+      - name: CLI smoke test
+        run: |
+          context-relay version
+          context-relay setup --dry-run --yes --no-telegram

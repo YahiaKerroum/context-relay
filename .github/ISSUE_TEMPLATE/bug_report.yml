@@ -1,0 +1,35 @@
+name: Bug report
+description: Something does not work as described
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Please **remove tokens and private paths** from anything you paste.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `context-relay doctor`
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Last lines of `~/.context-relay/relay.log`
+      render: text
+  - type: input
+    id: os
+    attributes:
+      label: OS and editor (for example Windows 11, VS Code)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Context Relay version (`context-relay version`)

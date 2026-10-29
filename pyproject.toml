@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "context-relay"
+dynamic = ["version"]
+description = "Calm vibe-coding with Claude Code and Gemini (Antigravity): context handoffs, safety nets, Telegram remote control, Gemini delegation."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Yahia Kerroum" }]
+keywords = ["claude-code", "antigravity", "gemini", "llm", "agents", "vscode", "telegram", "context-window", "hooks", "mcp"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development",
+]
+# The core has no dependencies on purpose: it is installed into your tools' hooks and has to start instantly.
+dependencies = []
+
+[project.optional-dependencies]
+screenshots = ["pillow>=10"]
+dev = ["pillow>=10", "ruff>=0.5"]
+
+[project.scripts]
+context-relay = "context_relay.relay:main"
+
+[project.urls]
+Homepage = "https://github.com/YahiaKerroum/context-relay"
+Issues = "https://github.com/YahiaKerroum/context-relay/issues"
+Changelog = "https://github.com/YahiaKerroum/context-relay/blob/main/CHANGELOG.md"
+
+[tool.setuptools.dynamic]
+version = { attr = "context_relay.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+context_relay = ["extension/*", "extension/**/*", "skills/**/*"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]  # real errors only: syntax, undefined names

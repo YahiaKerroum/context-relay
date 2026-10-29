@@ -1,0 +1,644 @@
+{
+  "name": "context-relay",
+  "displayName": "Context Relay",
+  "description": "Hands long Claude Code / Antigravity chats to a fresh chat at a context threshold, lets Claude delegate bulk work to Gemini, and keeps you calm: safety nets, phone control, night shift.",
+  "version": "0.5.0",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "main": "./extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "contextRelay",
+          "title": "Context Relay",
+          "icon": "media/relay.svg"
+        }
+      ]
+    },
+    "views": {
+      "contextRelay": [
+        {
+          "type": "webview",
+          "id": "contextRelay.panel",
+          "name": "Relay"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "contextRelay.handoffNow",
+        "title": "Context Relay: Hand Off Now"
+      },
+      {
+        "command": "contextRelay.undo",
+        "title": "Context Relay: Undo an Agent Turn"
+      },
+      {
+        "command": "contextRelay.toggleMode",
+        "title": "Context Relay: Switch Wi-Fi / Data Mode"
+      },
+      {
+        "command": "contextRelay.pairTelegram",
+        "title": "Context Relay: Pair Telegram"
+      },
+      {
+        "command": "contextRelay.annotateDataset",
+        "title": "Context Relay: Annotate a Dataset with Gemini (Antigravity)"
+      },
+      {
+        "command": "contextRelay.delegateTask",
+        "title": "Context Relay: Delegate a Task to Gemini (Antigravity)"
+      },
+      {
+        "command": "contextRelay.openLatestHandoff",
+        "title": "Context Relay: Open Latest Handoff"
+      },
+      {
+        "command": "contextRelay.openSettings",
+        "title": "Context Relay: Settings"
+      },
+      {
+        "command": "contextRelay.showLog",
+        "title": "Context Relay: Show Log"
+      },
+      {
+        "command": "contextRelay.openDashboard",
+        "title": "Context Relay: Open Dashboard"
+      },
+      {
+        "command": "contextRelay.dropIdea",
+        "title": "Context Relay: Drop an Idea into the Inbox"
+      },
+      {
+        "command": "contextRelay.addRule",
+        "title": "Context Relay: Pin a Rule"
+      },
+      {
+        "command": "contextRelay.watchLog",
+        "title": "Context Relay: Watch a Training Log"
+      },
+      {
+        "command": "contextRelay.watchKaggle",
+        "title": "Context Relay: Watch a Kaggle Run"
+      },
+      {
+        "command": "contextRelay.nightAdd",
+        "title": "Context Relay: Add a Night Shift Task"
+      },
+      {
+        "command": "contextRelay.nightStart",
+        "title": "Context Relay: Start the Night Shift"
+      },
+      {
+        "command": "contextRelay.setTelegramToken",
+        "title": "Context Relay: Set Up Telegram (Bot Token)"
+      }
+    ],
+    "configuration": [
+      {
+        "title": "Handoff",
+        "properties": {
+          "contextRelay.thresholdPct": {
+            "type": "number",
+            "default": 65,
+            "minimum": 10,
+            "maximum": 95,
+            "order": 1,
+            "markdownDescription": "Hand the chat off when its context reaches this percentage of the model's window."
+          },
+          "contextRelay.warnAtPct": {
+            "type": "number",
+            "default": 50,
+            "minimum": 0,
+            "maximum": 95,
+            "order": 2,
+            "markdownDescription": "Show a heads-up notification once a chat reaches this percentage. `0` turns it off."
+          },
+          "contextRelay.autoOpenNewChat": {
+            "type": "boolean",
+            "default": true,
+            "order": 3,
+            "markdownDescription": "Open the next chat automatically when the handoff is written. If the project is not open in any window, a window is opened for it."
+          },
+          "contextRelay.autoSubmit": {
+            "type": "boolean",
+            "default": true,
+            "order": 4,
+            "markdownDescription": "Send the handoff in the new chat without waiting for you. The Claude chat box only accepts a prefilled prompt, so the extension presses Enter for it, confirms that the message went through, and retries. If the window is in the background, it sends as soon as you come back to it."
+          },
+          "contextRelay.autoSubmitDelayMs": {
+            "type": "number",
+            "default": 2500,
+            "minimum": 500,
+            "order": 5,
+            "markdownDescription": "How long to let the new chat load before sending (milliseconds)."
+          },
+          "contextRelay.continueIn": {
+            "type": "string",
+            "enum": [
+              "same",
+              "claude",
+              "gemini"
+            ],
+            "default": "same",
+            "order": 6,
+            "enumDescriptions": [
+              "Continue in the same tool the chat was in",
+              "Always continue in Claude Code (VS Code)",
+              "Always continue in Gemini (Antigravity IDE), e.g. when Claude's usage limits run low"
+            ],
+            "markdownDescription": "Where the next chat runs after a handoff."
+          },
+          "contextRelay.openAppHandoffsInIde": {
+            "type": "boolean",
+            "default": true,
+            "order": 7,
+            "markdownDescription": "Chats in the Antigravity app or `agy` CLI have no editor to open a new chat in. Continue them in the Antigravity IDE instead. Off = start the next chat yourself and say `continue`."
+          },
+          "contextRelay.claudeWindowTokens": {
+            "type": "number",
+            "default": 0,
+            "minimum": 0,
+            "order": 8,
+            "markdownDescription": "Claude context window in tokens. `0` = automatic (what Claude Code reports; 1M for Opus, 200k otherwise). Set it lower to hand off earlier on very large windows."
+          },
+          "contextRelay.geminiWindowTokens": {
+            "type": "number",
+            "default": 1048576,
+            "minimum": 1000,
+            "order": 9,
+            "markdownDescription": "Gemini context window in tokens used for the percentage. Lower it to hand Gemini chats off earlier."
+          },
+          "contextRelay.remindEvery": {
+            "type": "number",
+            "default": 8,
+            "minimum": 1,
+            "order": 10,
+            "markdownDescription": "If the model keeps working instead of writing the handoff, remind it every N steps."
+          }
+        }
+      },
+      {
+        "title": "Safety and remote",
+        "properties": {
+          "contextRelay.guard.dangerGate": {
+            "type": "boolean",
+            "default": true,
+            "order": 1,
+            "markdownDescription": "Destructive commands (recursive deletes, force-push, `reset --hard`, dropping tables…) wait for your OK, here or on Telegram, even when the agent runs with permission prompts off."
+          },
+          "contextRelay.guard.dataGuard": {
+            "type": "boolean",
+            "default": true,
+            "order": 2,
+            "markdownDescription": "In data mode, big downloads (pip/npm installs, model and dataset downloads, git clone…) wait for your OK, with a size estimate."
+          },
+          "contextRelay.guard.approvalTimeoutMin": {
+            "type": "number",
+            "default": 10,
+            "minimum": 1,
+            "order": 3,
+            "markdownDescription": "Minutes to wait for your answer before the command is refused."
+          },
+          "contextRelay.network.mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "wifi",
+              "data"
+            ],
+            "default": "auto",
+            "order": 4,
+            "enumDescriptions": [
+              "Data mode on metered connections and the hotspots listed below",
+              "Always Wi-Fi mode",
+              "Always data mode"
+            ],
+            "markdownDescription": "Network mode for the data guard."
+          },
+          "contextRelay.network.dataSsids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "order": 5,
+            "markdownDescription": "Wi-Fi names that count as mobile data (your phone hotspot), on top of Windows' metered flag."
+          },
+          "contextRelay.snapshots.enabled": {
+            "type": "boolean",
+            "default": true,
+            "order": 6,
+            "markdownDescription": "Snapshot git projects at the start of every agent turn so one click undoes the whole turn. Uses a hidden repo; your own git history is never touched."
+          },
+          "contextRelay.telegram.notify": {
+            "type": "string",
+            "enum": [
+              "away",
+              "always",
+              "off"
+            ],
+            "default": "away",
+            "order": 7,
+            "enumDescriptions": [
+              "Only while you are away from the PC",
+              "Always",
+              "Never"
+            ],
+            "markdownDescription": "When finished turns, handoffs and job results are sent to Telegram."
+          },
+          "contextRelay.telegram.approvals": {
+            "type": "string",
+            "enum": [
+              "away",
+              "always"
+            ],
+            "default": "away",
+            "order": 8,
+            "markdownDescription": "When approval requests also go to Telegram (they always show here)."
+          },
+          "contextRelay.awayAfterMin": {
+            "type": "number",
+            "default": 10,
+            "minimum": 0,
+            "order": 9,
+            "markdownDescription": "You count as away after this many minutes without keyboard or mouse input (`0` = only with /away)."
+          },
+          "contextRelay.keepAwake": {
+            "type": "boolean",
+            "default": true,
+            "order": 10,
+            "markdownDescription": "Keep Windows from sleeping while an agent turn or a Gemini job is running. (Closing the laptop lid can still sleep it, depending on your power settings.)"
+          }
+        }
+      },
+      {
+        "title": "Delegation to Gemini (Antigravity)",
+        "properties": {
+          "contextRelay.delegation.runner": {
+            "type": "string",
+            "enum": [
+              "cli",
+              "ide"
+            ],
+            "default": "cli",
+            "order": 1,
+            "enumDescriptions": [
+              "Antigravity CLI: headless, batches in parallel (fastest)",
+              "Antigravity IDE: each batch opens as a new conversation in the agent panel so you can watch; one at a time"
+            ],
+            "markdownDescription": "How delegated work runs in Antigravity. Both use your Antigravity plan, not the Gemini API."
+          },
+          "contextRelay.delegation.model": {
+            "type": "string",
+            "default": "gemini-3.8-flash-medium",
+            "order": 2,
+            "enum": [
+              "gemini-3.8-flash-low",
+              "gemini-3.8-flash-medium",
+              "gemini-3.8-flash-high"
+            ],
+            "enumDescriptions": [
+              "Fastest, cheapest on quota",
+              "Balanced",
+              "Most careful, slowest"
+            ],
+            "markdownDescription": "Antigravity model for delegated work (`agy models` lists all)."
+          },
+          "contextRelay.delegation.batchSize": {
+            "type": "number",
+            "default": 20,
+            "minimum": 1,
+            "maximum": 40,
+            "order": 3,
+            "markdownDescription": "Records per batch. Every batch is a fresh conversation, because long conversations drift and get lenient. Keep it at 40 or below."
+          },
+          "contextRelay.delegation.concurrency": {
+            "type": "number",
+            "default": 3,
+            "minimum": 1,
+            "maximum": 8,
+            "order": 4,
+            "markdownDescription": "Batches running in parallel (CLI runner)."
+          },
+          "contextRelay.delegation.maxRetries": {
+            "type": "number",
+            "default": 2,
+            "minimum": 0,
+            "order": 5,
+            "markdownDescription": "Times a failing batch is redone in a new conversation."
+          },
+          "contextRelay.delegation.calibrationPerBatch": {
+            "type": "number",
+            "default": 3,
+            "minimum": 0,
+            "order": 6,
+            "markdownDescription": "Gold items with known answers mixed blind into every batch (when a calibration file is given)."
+          },
+          "contextRelay.delegation.calibrationMinAccuracy": {
+            "type": "number",
+            "default": 0.8,
+            "minimum": 0,
+            "maximum": 1,
+            "order": 7,
+            "markdownDescription": "A batch whose calibration accuracy is below this is redone."
+          },
+          "contextRelay.delegation.taskPermissions": {
+            "type": "string",
+            "enum": [
+              "edits",
+              "all"
+            ],
+            "default": "edits",
+            "order": 8,
+            "enumDescriptions": [
+              "Gemini may read and edit files but not run shell commands (headless Antigravity cannot ask you)",
+              "Approve everything, shell commands included (--dangerously-skip-permissions). Only for tasks you trust"
+            ],
+            "markdownDescription": "What a delegated task may do when it runs headless in the Antigravity CLI."
+          },
+          "contextRelay.autopilot.maxSessions": {
+            "type": "number",
+            "default": 10,
+            "minimum": 1,
+            "order": 8,
+            "markdownDescription": "Autopilot (`relay.py run`): most sessions in one chain."
+          }
+        }
+      },
+      {
+        "title": "Quality: stuck detector and checks",
+        "properties": {
+          "contextRelay.stuck.enabled": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "Notice an agent going in circles (the same error again and again, or editing one file over and over), nudge it, and escalate.",
+            "order": 1
+          },
+          "contextRelay.stuck.afterErrors": {
+            "type": "number",
+            "default": 3,
+            "markdownDescription": "Nudge the agent after this many identical errors.",
+            "order": 2,
+            "minimum": 2
+          },
+          "contextRelay.stuck.escalateAfter": {
+            "type": "number",
+            "default": 6,
+            "markdownDescription": "Escalate after this many identical errors.",
+            "order": 3,
+            "minimum": 3
+          },
+          "contextRelay.stuck.loopEdits": {
+            "type": "number",
+            "default": 6,
+            "markdownDescription": "Nudge after this many edits to the same file within the last few steps.",
+            "order": 4,
+            "minimum": 3
+          },
+          "contextRelay.stuck.escalate": {
+            "type": "string",
+            "default": "fresh",
+            "markdownDescription": "What happens when the nudge does not help. You get one calm message either way.",
+            "order": 5,
+            "enum": [
+              "fresh",
+              "other_model",
+              "notify"
+            ],
+            "enumDescriptions": [
+              "Hand off to a fresh session of the same tool, with a note on what failed",
+              "Hand off to the other model (Claude <-> Gemini)",
+              "Only tell me"
+            ]
+          },
+          "contextRelay.checks.enabled": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "**Done means green.** When an agent finishes a turn that changed code, run the project's tests/lint; failures go straight back to the agent. Tests that were already failing before the turn do not block it. Override the command in `<project>/.context-relay/checks.json`.",
+            "order": 6
+          },
+          "contextRelay.checks.timeoutS": {
+            "type": "number",
+            "default": 240,
+            "markdownDescription": "Give the checks this many seconds (a timeout is skipped, not treated as a failure).",
+            "order": 7,
+            "minimum": 10
+          },
+          "contextRelay.checks.maxRounds": {
+            "type": "number",
+            "default": 2,
+            "markdownDescription": "How many times a failing check is sent back to the agent per turn.",
+            "order": 8,
+            "minimum": 1
+          },
+          "contextRelay.autoSwitch.enabled": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "When Claude says its usage limit is reached, continue in Gemini: the handoff is built from the transcript and a Gemini chat takes over. (`/limit` on Telegram sets it by hand.)",
+            "order": 9
+          }
+        }
+      },
+      {
+        "title": "Phone: ideas, prompts, live view",
+        "properties": {
+          "contextRelay.inbox.autoRun": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "Ideas from `/drop` and the Inbox are done when the agent finishes its task; if nothing is running they are started in their own session.",
+            "order": 1
+          },
+          "contextRelay.inbox.idleWaitS": {
+            "type": "number",
+            "default": 20,
+            "markdownDescription": "Seconds to wait for a running agent to pick an idea up before starting it on its own.",
+            "order": 2,
+            "minimum": 0
+          },
+          "contextRelay.phone.permissionMode": {
+            "type": "string",
+            "default": "acceptEdits",
+            "markdownDescription": "Permission mode for sessions started from your phone.",
+            "order": 3,
+            "enum": [
+              "acceptEdits",
+              "default",
+              "bypassPermissions",
+              "plan"
+            ],
+            "enumDescriptions": [
+              "Edit files and run the allowed commands",
+              "Ask for everything (headless: refuses commands)",
+              "Approve everything (the danger gate still applies)",
+              "Plan only"
+            ]
+          },
+          "contextRelay.phone.resumeMode": {
+            "type": "string",
+            "default": "fork",
+            "markdownDescription": "How a message to an idle Claude chat continues it.",
+            "order": 4,
+            "enum": [
+              "fork",
+              "same"
+            ],
+            "enumDescriptions": [
+              "Continue in a copy of the chat: your editor chat is untouched",
+              "Append to the same chat (it may not refresh in the editor until reopened)"
+            ]
+          },
+          "contextRelay.phone.timeoutMin": {
+            "type": "number",
+            "default": 30,
+            "markdownDescription": "Stop a phone-started session after this many minutes.",
+            "order": 5,
+            "minimum": 1
+          },
+          "contextRelay.phone.defaultTool": {
+            "type": "string",
+            "default": "claude",
+            "markdownDescription": "Which agent `/new` and idle ideas use.",
+            "order": 6,
+            "enum": [
+              "claude",
+              "agy"
+            ],
+            "enumDescriptions": [
+              "Claude Code",
+              "Gemini (Antigravity)"
+            ]
+          },
+          "contextRelay.live.everyS": {
+            "type": "number",
+            "default": 6,
+            "markdownDescription": "`/live` refresh interval in seconds (data mode is slower).",
+            "order": 7,
+            "minimum": 3
+          },
+          "contextRelay.live.maxMin": {
+            "type": "number",
+            "default": 4,
+            "markdownDescription": "`/live` keeps updating for this many minutes.",
+            "order": 8,
+            "minimum": 1
+          },
+          "contextRelay.ask.timeoutMin": {
+            "type": "number",
+            "default": 30,
+            "markdownDescription": "How long an agent waits for your answer to a question (`ask_user`) before taking the safest option.",
+            "order": 9,
+            "minimum": 1
+          },
+          "contextRelay.ask.telegramAfterS": {
+            "type": "number",
+            "default": 120,
+            "markdownDescription": "Questions and approvals reach Telegram after this many seconds unanswered, even when you are at the PC.",
+            "order": 10,
+            "minimum": 0
+          },
+          "contextRelay.lockedIsAway": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "Count a locked PC as away (notifications go to Telegram at once).",
+            "order": 11
+          }
+        }
+      },
+      {
+        "title": "Resilience, watchers and night shift",
+        "properties": {
+          "contextRelay.recovery.enabled": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "When the connection drops, hold network tool calls (installs, pushes, downloads) until it is back, and resume chats that were cut off.",
+            "order": 1
+          },
+          "contextRelay.recovery.graceS": {
+            "type": "number",
+            "default": 90,
+            "markdownDescription": "After reconnecting, wait this long for the agents' own retries before resuming a chat.",
+            "order": 2,
+            "minimum": 10
+          },
+          "contextRelay.kaggle.autoFetch": {
+            "type": "string",
+            "default": "wifi",
+            "markdownDescription": "Pull the key numbers out of a finished Kaggle run. Only `*.log` and `results/*` are downloaded.",
+            "order": 3,
+            "enum": [
+              "wifi",
+              "always",
+              "never"
+            ],
+            "enumDescriptions": [
+              "Fetch only the log and results/ when a run finishes, in Wi-Fi mode (a button in data mode)",
+              "Always fetch them",
+              "Never: just tell me it finished"
+            ]
+          },
+          "contextRelay.night.maxHours": {
+            "type": "number",
+            "default": 8,
+            "markdownDescription": "The night shift stops after this many hours.",
+            "order": 4,
+            "minimum": 1
+          },
+          "contextRelay.night.maxSessionsPerTask": {
+            "type": "number",
+            "default": 6,
+            "markdownDescription": "Most chained sessions (each hands off at the context threshold) per task.",
+            "order": 5,
+            "minimum": 1
+          },
+          "contextRelay.night.fallbackToGemini": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "If Claude's usage limit is hit overnight, move the remaining Claude tasks to Gemini.",
+            "order": 6
+          },
+          "contextRelay.delegation.interRater.enabled": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "**Inter-rater check.** After a Gemini dataset job, Claude blind-labels a random sample and reports agreement (Cohen's kappa). Costs a little Claude usage per job. Can also be requested per job.",
+            "order": 7
+          },
+          "contextRelay.delegation.interRater.fraction": {
+            "type": "number",
+            "default": 0.05,
+            "markdownDescription": "Share of the records Claude re-labels (at least 10, at most 100).",
+            "order": 8,
+            "minimum": 0.01,
+            "maximum": 1
+          },
+          "contextRelay.delegation.interRater.model": {
+            "type": "string",
+            "default": "sonnet",
+            "markdownDescription": "Claude model for the check (`sonnet`, `opus`, `haiku`).",
+            "order": 9
+          },
+          "contextRelay.guard.extraDangerPatterns": {
+            "type": "array",
+            "default": [],
+            "markdownDescription": "Extra regular expressions for commands that should wait for your OK.",
+            "order": 10,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YahiaKerroum/context-relay"
+  }
+}
